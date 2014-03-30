@@ -1,0 +1,26 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 2012
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EidReader", "EidReader\EidReader.csproj", "{527749A0-7D9C-4A8D-82A2-A6E12CFAD53D}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SampleEidUsage", "SampleEidUsage\SampleEidUsage.csproj", "{AF615C6C-F9A6-48D2-AB9F-A43E2AD5BCC7}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{527749A0-7D9C-4A8D-82A2-A6E12CFAD53D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{527749A0-7D9C-4A8D-82A2-A6E12CFAD53D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{527749A0-7D9C-4A8D-82A2-A6E12CFAD53D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{527749A0-7D9C-4A8D-82A2-A6E12CFAD53D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AF615C6C-F9A6-48D2-AB9F-A43E2AD5BCC7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AF615C6C-F9A6-48D2-AB9F-A43E2AD5BCC7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AF615C6C-F9A6-48D2-AB9F-A43E2AD5BCC7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AF615C6C-F9A6-48D2-AB9F-A43E2AD5BCC7}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
