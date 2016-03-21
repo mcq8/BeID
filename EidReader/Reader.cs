@@ -11,6 +11,7 @@ namespace Be.Mcq8.EidReader
 {
     public class Reader : IDisposable
     {
+        public event EventHandler<ReaderEventArgs> OnStartedReading = null;
         public event EventHandler<ReaderEventArgs> OnIdRead = null;
         public event EventHandler<ReaderEventArgs> OnAddressRead = null;
         public event EventHandler<ReaderEventArgs> OnPhotoRead = null;
@@ -61,6 +62,7 @@ namespace Be.Mcq8.EidReader
         {
             if (disposing)
             {
+                OnStartedReading = null;
                 OnIdRead = null;
                 OnAddressRead = null;
                 OnDataCleared = null;
@@ -156,6 +158,10 @@ namespace Be.Mcq8.EidReader
             try
             {
                 Connect();
+                if (OnStartedReading != null)
+                {
+                    OnStartedReading(this, new ReaderEventArgs(this));
+                }
                 RSAPKCS1SignatureDeformatter RSADeformatter;
                 SHA1Managed sha = new SHA1Managed();
                 byte[] result;
