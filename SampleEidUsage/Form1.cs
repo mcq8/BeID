@@ -18,7 +18,15 @@ namespace SampleEidUsage
             det = new Be.Mcq8.EidReader.ReaderManager();
             det.OnReaderConnected += det_OnReaderConnected;
             det.OnReaderDisconnected += det_OnReaderDisconnected;
-            det.Init();
+            try
+            {
+                det.Init();
+            }
+            catch (SCardSvrNotRunningException)
+            {
+                MessageBox.Show("The SCardSvr serice must be running in order to use this program");
+            }
+            
         }
 
         private void det_OnReaderConnected(object sender, ReaderEventArgs e)

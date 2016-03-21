@@ -4,6 +4,7 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
+using System.ServiceProcess;
 using System.Threading;
 
 namespace Be.Mcq8.EidReader
@@ -372,6 +373,11 @@ namespace Be.Mcq8.EidReader
             int lastError = 0;
             try
             {
+                ServiceController service = new ServiceController("SCardSvr");
+                if (service.Status != ServiceControllerStatus.Running)
+                {
+                    throw new SCardSvrNotRunningException();
+                }
                 lastError = NativeMethods.SCardEstablishContext((uint)scope, IntPtr.Zero, IntPtr.Zero, hContext);
                 if (lastError != (int)Scard.SCARD_S_SUCCESS)
                 {
