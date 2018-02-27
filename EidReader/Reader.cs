@@ -153,6 +153,16 @@ namespace Be.Mcq8.EidReader
                 OnDataCleared(this, new ReaderEventArgs(this));
         }
 
+        private void runEventHandler(EventHandler<ReaderEventArgs> eventHandler)
+        {
+            var eventListeners = eventHandler.GetInvocationList();
+            for (int index = 0; index < eventListeners.Count(); index++)
+            {
+                var methodToInvoke = (EventHandler<ReaderEventArgs>)eventListeners[index];
+                methodToInvoke.BeginInvoke(this, new ReaderEventArgs(this), null, null);
+            }
+        }
+
         private void cardInserted()
         {
             try
@@ -188,7 +198,7 @@ namespace Be.Mcq8.EidReader
                 idFile = new IdFile(result);
                 if (OnIdRead != null)
                 {
-                    OnIdRead(this, new ReaderEventArgs(this));
+                    runEventHandler(OnIdRead);
                 }
 
                 if (readOption == ReadOption.IdAndAddress || readOption == ReadOption.All)
@@ -222,7 +232,7 @@ namespace Be.Mcq8.EidReader
 
                     if (OnAddressRead != null)
                     {
-                        OnAddressRead(this, new ReaderEventArgs(this));
+                        runEventHandler(OnAddressRead);
                     }
 
                     if (readOption == ReadOption.All)
@@ -242,7 +252,7 @@ namespace Be.Mcq8.EidReader
 
                         if (OnPhotoRead != null)
                         {
-                            OnPhotoRead(this, new ReaderEventArgs(this));
+                            runEventHandler(OnPhotoRead);
                         }
                     }
                 }
