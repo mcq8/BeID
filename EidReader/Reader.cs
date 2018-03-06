@@ -6,6 +6,7 @@ using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.ServiceProcess;
 using System.Threading;
+using System.Text;
 
 namespace Be.Mcq8.EidReader
 {
@@ -81,32 +82,32 @@ namespace Be.Mcq8.EidReader
             {
                 bool bFirstLoop = true;
                 runCardDetection = true;
-                int lastError;
+                IntPtr lastError;
 
-                contextPointer = EstablishContext(ReaderScope.User);
+                contextPointer = NativeMethods.EstablishContext(ReaderScope.User);
 
-                UInt32 nbReaders = 1;
+                int nbReaders = 1;
                 SCardReaderState[] readerState = new SCardReaderState[nbReaders];
 
-                readerState[0].CurrentState = (UInt32)CardState.UNAWARE;
+                readerState[0].CurrentState = (IntPtr)CardState.UNAWARE;
                 readerState[0].ReaderName = name;
                 while (runCardDetection)
                 {
                     lastError = NativeMethods.SCardGetStatusChange(contextPointer, WAIT_TIME, readerState, nbReaders);
-                    if (lastError == (int)Scard.SCARD_E_TIMEOUT)
+                    if ((int)lastError == (int)Scard.SCARD_E_TIMEOUT)
                     {
                         continue;
                     }
-                    else if (lastError == (int)Scard.SCARD_E_NO_SERVICE || lastError == (int)Scard.SCARD_E_SERVICE_STOPPED)
+                    else if ((int)lastError == (int)Scard.SCARD_E_NO_SERVICE || (int)lastError == (int)Scard.SCARD_E_SERVICE_STOPPED)
                     {
                         break;
                     }
-                    else if (lastError != (int)Scard.SCARD_S_SUCCESS)
+                    else if ((int)lastError != (int)Scard.SCARD_S_SUCCESS)
                     {
                         throw new ReaderException(this, "SCardGetStatusChange error: " + lastError);
                     }
-                    UInt32 eventState = readerState[0].EventState;
-                    UInt32 currentState = readerState[0].CurrentState;
+                    int eventState = (int)readerState[0].EventState;
+                    IntPtr currentState = readerState[0].CurrentState;
 
                     if (((eventState & (uint)CardState.CHANGED) == (uint)CardState.CHANGED))
                     {
@@ -115,7 +116,7 @@ namespace Be.Mcq8.EidReader
                             cardRemoved();
                         }
                         else if ((((eventState & (uint)CardState.PRESENT) == (uint)CardState.PRESENT) &&
-                            ((eventState & (uint)CardState.PRESENT) != (currentState & (uint)CardState.PRESENT))) ||
+                            ((eventState & (uint)CardState.PRESENT) != ((int)currentState & (uint)CardState.PRESENT))) ||
                             (eventState & (uint)CardState.ATRMATCH) == (uint)CardState.ATRMATCH ||
                             bFirstLoop)
                         {
@@ -130,12 +131,11 @@ namespace Be.Mcq8.EidReader
                             }
                         }
                     }
-
-                    readerState[0].CurrentState = eventState;
+                    readerState[0].CurrentState = (IntPtr)eventState;
                     bFirstLoop = false;
                 }
 
-                ReleaseContext(contextPointer);
+                NativeMethods.ReleaseContext(contextPointer);
 
             }
             catch (Exception ex)
@@ -337,13 +337,14 @@ namespace Be.Mcq8.EidReader
             ApduBuffer[2] = bP1;
             ApduBuffer[3] = bP2;
 
-            int lastError = NativeMethods.SCardTransmit(cardPointer, ref ioRequest, ApduBuffer, (uint)ApduBuffer.Length, IntPtr.Zero, ApduResponse, out RecvLength);
+            IntPtr RecvLengthp = (IntPtr)RecvLength;
+            int lastError = NativeMethods.SCardTransmit(cardPointer, ref ioRequest, ApduBuffer, (uint)ApduBuffer.Length, IntPtr.Zero, ApduResponse, out RecvLengthp);
 
             if (lastError != (int)Scard.SCARD_S_SUCCESS)
             {
                 throw new ReaderException(this, "SCardTransmit error: " + lastError + " Apdu: " + BitConverter.ToString(ApduBuffer));
             }
-            return new APDUResponse(ApduResponse, RecvLength);
+            return new APDUResponse(ApduResponse, (UInt32)RecvLengthp);
         }
 
         private void Connect()
@@ -382,42 +383,5 @@ namespace Be.Mcq8.EidReader
             }
         }
 
-        internal static IntPtr EstablishContext(ReaderScope scope)
-        {
-            IntPtr context = IntPtr.Zero;
-            IntPtr hContext = Marshal.AllocHGlobal(Marshal.SizeOf(context));
-            int lastError = 0;
-            try
-            {
-                ServiceController service = new ServiceController("SCardSvr");
-                if (service.Status != ServiceControllerStatus.Running)
-                {
-                    throw new SCardSvrNotRunningException();
-                }
-                lastError = NativeMethods.SCardEstablishContext((uint)scope, IntPtr.Zero, IntPtr.Zero, hContext);
-                if (lastError != (int)Scard.SCARD_S_SUCCESS)
-                {
-                    throw new ReaderException(null, "SCardEstablishContext error: " + lastError);
-                }
-                context = Marshal.ReadIntPtr(hContext);
-            }
-            finally
-            {
-                Marshal.FreeHGlobal(hContext);
-            }
-            return context;
-        }
-
-        internal static void ReleaseContext(IntPtr context)
-        {
-            if (NativeMethods.SCardIsValidContext(context) == (int)Scard.SCARD_S_SUCCESS)
-            {
-                int lastError = NativeMethods.SCardReleaseContext(context);
-                if (lastError != (int)Scard.SCARD_S_SUCCESS)
-                {
-                    throw new ReaderException(null, "SCardReleaseContext error: " + lastError);
-                }
-            }
-        }
     }
 }

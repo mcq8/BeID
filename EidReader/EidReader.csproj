@@ -50,9 +50,7 @@
     <Compile Include="IdFile.cs" />
     <Compile Include="NativeMethods.cs" />
     <Compile Include="Reader.cs" />
-    <Compile Include="ReaderDetector.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="NotRunningException.cs" />
     <Compile Include="ReaderException.cs" />
     <Compile Include="ReaderManager.cs" />
   </ItemGroup>

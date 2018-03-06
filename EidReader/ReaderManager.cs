@@ -1,28 +1,42 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Runtime.InteropServices;
 using System.Text;
-using System.Windows.Forms;
+using System.Threading;
 
 namespace Be.Mcq8.EidReader
 {
-    public class ReaderManager : NativeWindow
+    public class ReaderManager : IDisposable
     {
         public event EventHandler<ReaderEventArgs> OnReaderConnected = null;
         public event EventHandler<ReaderEventArgs> OnReaderDisconnected = null;
 
+        private BackgroundWorker backgroundWorker1;
+
         private Dictionary<String, Reader> readers;
+
+        private const uint WAIT_TIME = 250;
+
 
         public ReaderManager()
         {
-            this.CreateHandle(new CreateParams());
             readers = new Dictionary<string, Reader>();
-            ReaderDetector.RegisterUsbDeviceNotification(this.Handle);
+            backgroundWorker1 = new BackgroundWorker();
+            backgroundWorker1.DoWork += backgroundWorker1_DoWork;
+            backgroundWorker1.ProgressChanged += backgroundWorker1_ProgressChanged;
+            backgroundWorker1.WorkerReportsProgress = true;
+
+        }
+        ~ReaderManager()
+        {
+            Dispose(false);
         }
 
-        public void Init()
+        public void Dispose()
         {
-            UpdateReaderList();
+            Dispose(true);
+            GC.SuppressFinalize(this);
         }
 
         public void Dispose(bool disposing)
@@ -34,16 +48,69 @@ namespace Be.Mcq8.EidReader
                     reader.Value.Dispose();
                 }
                 readers.Clear();
+                OnReaderConnected = null;
+                OnReaderDisconnected = null;
             }
         }
 
-        protected override void WndProc(ref Message m)
+        private void ReaderManager_UpdateCards(object sender, EventArgs e)
         {
-            base.WndProc(ref m);
-            if (m.Msg == ReaderDetector.WmDeviceChange &&
-             ((int)m.WParam == ReaderDetector.DbtDeviceRemoveComplete || (int)m.WParam == ReaderDetector.DbtDeviceArrival))
+            UpdateReaderList();
+        }
+
+        protected void RunCardDetection()
+        {
+
+            try
             {
-                UpdateReaderList();
+                IntPtr lastError;
+                var contextPointer = NativeMethods.EstablishContext(ReaderScope.User);
+                SCardReaderState[] readerState = new SCardReaderState[1];
+                readerState[0].CurrentState = (IntPtr)CardState.UNAWARE;
+                readerState[0].ReaderName = "\\\\?PnP?\\Notification";
+
+                while (true)
+                {
+                    lastError = NativeMethods.SCardGetStatusChange(contextPointer, 0xFFFFFFFF, readerState, 1);
+                    if ((uint)lastError == 0x8010001e)
+                    {
+                        Thread.Sleep(100);
+                        contextPointer = NativeMethods.EstablishContext(ReaderScope.User);
+                        continue;
+                    }
+                    UpdateReaderList();
+                    readerState[0].CurrentState = (IntPtr)(readers.Count << 16);
+                }
+
+                NativeMethods.ReleaseContext(contextPointer);
+
+            }
+            catch (Exception ex)
+            {
+                Logger.Log(ex.Message);
+            }
+        }
+
+        public void Init()
+        {
+            UpdateReaderList();
+            backgroundWorker1.RunWorkerAsync();
+        }
+
+        private void backgroundWorker1_DoWork(object sender, System.ComponentModel.DoWorkEventArgs e)
+        {
+            RunCardDetection();
+        }
+
+        private void backgroundWorker1_ProgressChanged(object sender, System.ComponentModel.ProgressChangedEventArgs e)
+        {
+            if (e.ProgressPercentage == 1)
+            {
+                OnReaderConnected(this, (ReaderEventArgs)e.UserState);
+            }
+            if (e.ProgressPercentage == 0)
+            {
+                OnReaderDisconnected(this, (ReaderEventArgs)e.UserState);
             }
         }
 
@@ -60,7 +127,7 @@ namespace Be.Mcq8.EidReader
                     readers.Add(newList[i], newReader);
                     if (OnReaderConnected != null)
                     {
-                        OnReaderConnected(this, new ReaderEventArgs(newReader));
+                        backgroundWorker1.ReportProgress(1, new ReaderEventArgs(newReader));
                     }
                 }
                 oldList.Remove(newList[i]);
@@ -70,7 +137,7 @@ namespace Be.Mcq8.EidReader
             {
                 if (OnReaderDisconnected != null)
                 {
-                    OnReaderDisconnected(this, new ReaderEventArgs(readers[oldList[i]]));
+                    backgroundWorker1.ReportProgress(0, new ReaderEventArgs(readers[oldList[i]]));
                 }
                 readers.Remove(oldList[i]);
             }
@@ -79,25 +146,26 @@ namespace Be.Mcq8.EidReader
         private List<string> ListReaders()
         {
             List<string> readers = new List<string>();
-            UInt32 byteCount = 0;
-            IntPtr context = Reader.EstablishContext(ReaderScope.User);
+            IntPtr byteCount = (IntPtr)0;
+            IntPtr context = NativeMethods.EstablishContext(ReaderScope.User);
 
-            if (NativeMethods.SCardListReaders(context, null, IntPtr.Zero, out byteCount) == (int)Scard.SCARD_S_SUCCESS)
+            if ((int)NativeMethods.SCardListReaders(context, null, IntPtr.Zero, out byteCount) == (int)Scard.SCARD_S_SUCCESS)
             {
                 IntPtr szListReaders = Marshal.AllocHGlobal((int)byteCount);
-                if (NativeMethods.SCardListReaders(context, null, szListReaders, out byteCount) == (int)Scard.SCARD_S_SUCCESS)
+                if ((int)NativeMethods.SCardListReaders(context, null, szListReaders, out byteCount) == (int)Scard.SCARD_S_SUCCESS)
                 {
-                    if (byteCount > 1)
+                    int byteCountt = (int)byteCount;
+                    if (byteCountt > 1)
                     {
-                        byte[] caReadersData = new byte[byteCount];
+                        byte[] caReadersData = new byte[byteCountt];
                         Marshal.Copy(szListReaders, caReadersData, 0, (int)byteCount);
 
                         int start = 0;
                         int end;
-                        while (start < byteCount - 1)
+                        while (start < byteCountt - 1)
                         {
                             end = start;
-                            while (end < byteCount && caReadersData[end] != 0)
+                            while (end < byteCountt && caReadersData[end] != 0)
                             {
                                 end++;
                             }
@@ -108,7 +176,7 @@ namespace Be.Mcq8.EidReader
                 }
                 Marshal.FreeHGlobal(szListReaders);
             }
-            Reader.ReleaseContext(context);
+            NativeMethods.ReleaseContext(context);
             return readers;
         }
     }
