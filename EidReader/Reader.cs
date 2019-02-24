@@ -173,7 +173,7 @@ namespace Be.Mcq8.EidReader
                     OnStartedReading(this, new ReaderEventArgs(this));
                 }
                 RSAPKCS1SignatureDeformatter RSADeformatter;
-                SHA1Managed sha = new SHA1Managed();
+                HashAlgorithm sha;
                 byte[] result;
                 byte[] resultSignId;
                 int tries = -1;
@@ -183,7 +183,16 @@ namespace Be.Mcq8.EidReader
                     byte[] rnCertData = getFile(FileID.RnCert);
                     X509Certificate2 certificate = new X509Certificate2(rnCertData);
                     RSADeformatter = new RSAPKCS1SignatureDeformatter(certificate.PublicKey.Key);
-                    RSADeformatter.SetHashAlgorithm("SHA1");
+                    if (certificate.SignatureAlgorithm.Value == "1.2.840.113549.1.1.11")
+                    {
+                        sha = new SHA256Managed();
+                        RSADeformatter.SetHashAlgorithm("SHA256");
+                    }
+                    else
+                    {
+                        sha = new SHA1Managed();
+                        RSADeformatter.SetHashAlgorithm("SHA1");
+                    }
 
                     result = getFile(FileID.Id);
                     resultSignId = getFile(FileID.IdSign);
