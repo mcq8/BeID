@@ -2,11 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
-using System.Security.Cryptography;
-using System.Security.Cryptography.X509Certificates;
-using System.ServiceProcess;
 using System.Threading;
-using System.Text;
 
 namespace Be.Mcq8.EidReader
 {
@@ -172,8 +168,8 @@ namespace Be.Mcq8.EidReader
                 {
                     OnStartedReading(this, new ReaderEventArgs(this));
                 }
-                RSAPKCS1SignatureDeformatter RSADeformatter;
-                HashAlgorithm sha;
+
+                Verifier verifier;
                 byte[] result;
                 byte[] resultSignId;
                 int tries = -1;
@@ -181,23 +177,12 @@ namespace Be.Mcq8.EidReader
                 {
                     tries++;
                     byte[] rnCertData = getFile(FileID.RnCert);
-                    X509Certificate2 certificate = new X509Certificate2(rnCertData);
-                    RSADeformatter = new RSAPKCS1SignatureDeformatter(certificate.PublicKey.Key);
-                    if (certificate.SignatureAlgorithm.Value == "1.2.840.113549.1.1.11")
-                    {
-                        sha = new SHA256Managed();
-                        RSADeformatter.SetHashAlgorithm("SHA256");
-                    }
-                    else
-                    {
-                        sha = new SHA1Managed();
-                        RSADeformatter.SetHashAlgorithm("SHA1");
-                    }
+                    verifier = new Verifier(rnCertData);
 
                     result = getFile(FileID.Id);
                     resultSignId = getFile(FileID.IdSign);
                 }
-                while (!(RSADeformatter.VerifySignature(sha.ComputeHash(result), resultSignId)) && tries < MAX_RETRIES);
+                while (!verifier.Verify(result, resultSignId) && tries < MAX_RETRIES);
 
                 if (tries == MAX_RETRIES)
                 {
@@ -230,7 +215,7 @@ namespace Be.Mcq8.EidReader
                         Buffer.BlockCopy(result, 0, resultSignAppended, 0, resultLength);
                         Buffer.BlockCopy(resultSignId, 0, resultSignAppended, resultLength, resultSignId.Length);
                     }
-                    while (!(RSADeformatter.VerifySignature(sha.ComputeHash(resultSignAppended), resultSign)) && tries < MAX_RETRIES);
+                    while (!verifier.Verify(resultSignAppended, resultSign) && tries < MAX_RETRIES);
 
                     if (tries == MAX_RETRIES)
                     {
@@ -252,7 +237,7 @@ namespace Be.Mcq8.EidReader
                             tries++;
                             photoFile = getFile(FileID.Photo);
                         }
-                        while (!(sha.ComputeHash(photoFile).SequenceEqual(idFile.PhotoHash)) && tries < MAX_RETRIES);
+                        while (!(verifier.Sha.ComputeHash(photoFile).SequenceEqual(idFile.PhotoHash)) && tries < MAX_RETRIES);
 
                         if (tries == MAX_RETRIES)
                         {
